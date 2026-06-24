@@ -43,25 +43,30 @@ import Layout from '../layouts/Layout.astro';
 
   <div class="card" style="max-width:500px;margin-bottom:1rem;">
     <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem;">Licence</h3>
-    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
       <span style="font-size:0.75rem;color:var(--text-tertiary);">Status:</span>
       <span id="lic-status" class="badge-active" style="font-size:0.65rem;">Loading...</span>
+    </div>
+    <p id="lic-email" style="font-size:0.65rem;color:var(--text-tertiary);font-family:'JetBrains Mono',monospace;margin-bottom:1rem;display:none;"></p>
+    <div id="lic-trial-actions" style="display:none;margin-bottom:0.75rem;">
+      <button id="lic-start-trial" class="btn-primary">Start 7-Day Free Trial</button>
     </div>
     <div style="margin-bottom:0.75rem;">
       <label class="label" for="lic-key">Licence Key</label>
       <input type="text" id="lic-key" class="input" placeholder="Paste your Gumroad licence key" />
     </div>
     <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:0.75rem;">
-      <button id="lic-activate" class="btn-primary">Activate</button>
+      <button id="lic-activate" class="btn-secondary">Activate</button>
       <span id="lic-result" style="font-size:0.7rem;font-family:'JetBrains Mono',monospace;display:none;"></span>
     </div>
-    <a href="#" id="lic-buy" class="btn-secondary" style="display:inline-flex;">Buy Licence — £4.99</a>
+    <a href="#" id="lic-buy" class="btn-ghost" style="display:inline-flex;">Buy Licence — £4.99</a>
+    <p style="color:var(--text-quaternary);font-size:0.6rem;margin-top:0.6rem;line-height:1.4;">WattWise Pro is £4.99 one-time. It funds development and keeps the free tier ad-free forever.</p>
   </div>
 
   <div class="card" style="max-width:500px;">
     <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem;">About WattWise</h3>
     <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;">
-      <p>v1.0.0 &middot; Built with <a href="https://ui.byjtt.com" target="_blank" style="color:var(--accent-primary);">ByJT UI</a></p>
+      <p>v1.0.1 &middot; Built with <a href="https://ui.byjtt.com" target="_blank" style="color:var(--accent-primary);">ByJT UI</a></p>
       <p style="margin-top:0.35rem;">Sensors powered by <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor" target="_blank" style="color:var(--accent-primary);">LibreHardwareMonitor</a></p>
       <p style="margin-top:0.35rem;">
         <a href="https://github.com/jordan-thirkle/wattwise" target="_blank" style="color:var(--text-tertiary);font-size:0.7rem;">GitHub</a>
@@ -73,7 +78,7 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { fetchSettings, updateSettings, fetchLicenseStatus, validateLicenseKey } from '../lib/api';
+  import { fetchSettings, updateSettings, fetchLicenseStatus, validateLicenseKey, startTrial } from '../lib/api';
 
   async function loadSettings() {
     try {
@@ -117,15 +122,31 @@ import Layout from '../layouts/Layout.astro';
   loadSettings();
 
   // Licence section
+  let currentLicenseState = '';
+
   async function loadLicense() {
     try {
       const s = await fetchLicenseStatus();
+      currentLicenseState = s.state;
       const badge = document.getElementById('lic-status')!;
-      badge.textContent = s.state.toUpperCase();
-      badge.className = s.state === 'active' ? 'badge-active' : s.state === 'trial' ? 'badge-active' : 'badge-error';
-      if (s.state === 'trial') {
-        badge.textContent = `TRIAL (${s.daysRemaining}d left)`;
+      const trialActions = document.getElementById('lic-trial-actions')!;
+      const email = document.getElementById('lic-email')!;
+
+      if (s.state === 'active') {
+        badge.textContent = 'ACTIVE';
         badge.className = 'badge-active';
+        trialActions.style.display = 'none';
+        if (s.email) { email.textContent = s.email; email.style.display = 'block'; }
+      } else if (s.state === 'trial') {
+        badge.textContent = `TRIAL — ${s.daysRemaining}d remaining`;
+        badge.className = 'badge-active';
+        trialActions.style.display = 'none';
+        email.style.display = 'none';
+      } else {
+        badge.textContent = 'FREE';
+        badge.className = 'badge-paused';
+        trialActions.style.display = 'block';
+        email.style.display = 'none';
       }
     } catch {
       const badge = document.getElementById('lic-status')!;
@@ -156,6 +177,27 @@ import Layout from '../layouts/Layout.astro';
       }
     } catch {
       resultEl.textContent = 'Cannot reach licence server.';
+      resultEl.style.color = 'var(--error)';
+    }
+  });
+
+  document.getElementById('lic-start-trial')?.addEventListener('click', async () => {
+    const resultEl = document.getElementById('lic-result')!;
+    resultEl.textContent = 'Starting trial...';
+    resultEl.style.color = 'var(--text-tertiary)';
+    resultEl.style.display = 'block';
+    try {
+      const status = await startTrial();
+      if (status.state === 'trial') {
+        resultEl.textContent = 'Trial started! 7 days of Pro features unlocked.';
+        resultEl.style.color = 'var(--accent-secondary)';
+        loadLicense();
+      } else {
+        resultEl.textContent = 'Already on a trial or active licence.';
+        resultEl.style.color = 'var(--warning)';
+      }
+    } catch {
+      resultEl.textContent = 'Failed to start trial.';
       resultEl.style.color = 'var(--error)';
     }
   });

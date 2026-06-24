@@ -18,40 +18,110 @@ public class LicenseService
 
     public LicenseStatus GetStatus()
     {
+        // First launch — default to free
         var firstLaunch = _store.GetSetting("first_launch");
         if (firstLaunch == null)
         {
             firstLaunch = DateTime.UtcNow.ToString("O");
             _store.SaveSetting("first_launch", firstLaunch);
-            _store.SaveSetting("license_status", "trial");
+            _store.SaveSetting("license_status", "free");
         }
 
-        var status = _store.GetSetting("license_status") ?? "trial";
+        var status = _store.GetSetting("license_status") ?? "free";
         var key = _store.GetSetting("license_key") ?? "";
         var email = _store.GetSetting("license_email") ?? "";
 
-        DateTime.TryParse(firstLaunch, out var launchDate);
-        var trialEnd = launchDate.AddDays(TrialDays);
-        var daysRemaining = Math.Max(0, (int)(trialEnd - DateTime.UtcNow).TotalDays);
-
+        // Active licence — always honoured
         if (status == "active")
         {
-            return new LicenseStatus { State = "active", DaysRemaining = -1, Email = email, TrialEnd = trialEnd.ToString("O") };
+            return new LicenseStatus
+            {
+                State = "active",
+                Tier = "pro",
+                DaysRemaining = -1,
+                Email = email,
+                TrialEnd = ""
+            };
         }
 
-        if (DateTime.UtcNow > trialEnd)
+        // Trial — check expiry, auto-revert to free if expired
+        if (status == "trial")
         {
-            _store.SaveSetting("license_status", "expired");
-            return new LicenseStatus { State = "expired", DaysRemaining = 0, Email = email, TrialEnd = trialEnd.ToString("O") };
+            var trialStart = _store.GetSetting("trial_start");
+            if (trialStart != null && DateTime.TryParse(trialStart, out var ts))
+            {
+                var trialEnd = ts.AddDays(TrialDays);
+                var daysRemaining = Math.Max(0, (int)(trialEnd - DateTime.UtcNow).TotalDays);
+
+                if (DateTime.UtcNow > trialEnd)
+                {
+                    // Trial expired — revert to free
+                    _store.SaveSetting("license_status", "free");
+                    _store.SaveSetting("trial_start", "");
+                    return new LicenseStatus
+                    {
+                        State = "free",
+                        Tier = "free",
+                        DaysRemaining = 0,
+                        Email = "",
+                        TrialEnd = ""
+                    };
+                }
+
+                return new LicenseStatus
+                {
+                    State = "trial",
+                    Tier = "pro",
+                    DaysRemaining = daysRemaining,
+                    Email = "",
+                    TrialEnd = trialEnd.ToString("O")
+                };
+            }
+            // Corrupt trial state — reset to free
+            _store.SaveSetting("license_status", "free");
         }
 
-        return new LicenseStatus { State = "trial", DaysRemaining = daysRemaining, Email = "", TrialEnd = trialEnd.ToString("O") };
+        // Free tier
+        return new LicenseStatus
+        {
+            State = "free",
+            Tier = "free",
+            DaysRemaining = 0,
+            Email = "",
+            TrialEnd = ""
+        };
     }
 
-    public bool IsLocked()
+    public string GetTier()
     {
-        var status = GetStatus();
-        return status.State == "expired";
+        return GetStatus().Tier;
+    }
+
+    public bool IsPro()
+    {
+        return GetTier() == "pro";
+    }
+
+    public LicenseStatus StartTrial()
+    {
+        var current = GetStatus();
+        if (current.State == "trial" || current.State == "active")
+        {
+            return current;
+        }
+
+        var now = DateTime.UtcNow.ToString("O");
+        _store.SaveSetting("trial_start", now);
+        _store.SaveSetting("license_status", "trial");
+
+        return new LicenseStatus
+        {
+            State = "trial",
+            Tier = "pro",
+            DaysRemaining = TrialDays,
+            Email = "",
+            TrialEnd = DateTime.UtcNow.AddDays(TrialDays).ToString("O")
+        };
     }
 
     public async Task<ValidateResult> ValidateKey(string key)
@@ -67,6 +137,7 @@ public class LicenseService
                 _store.SaveSetting("license_key", key);
                 _store.SaveSetting("license_status", "active");
                 _store.SaveSetting("license_email", json.Purchase?.Email ?? "");
+                _store.SaveSetting("trial_start", "");
                 return new ValidateResult { Valid = true, Message = "Licence activated successfully." };
             }
             else
@@ -76,7 +147,6 @@ public class LicenseService
         }
         catch (Exception)
         {
-            // Network error — trust local state if already active
             var currentStatus = _store.GetSetting("license_status");
             if (currentStatus == "active")
             {
@@ -85,15 +155,8 @@ public class LicenseService
             return new ValidateResult { Valid = false, Message = "Cannot reach licence server. Check your internet connection." };
         }
     }
-
-    public SensorSnapshot? GetLastSnapshot()
-    {
-        var recent = _store.GetRecentSnapshots(1);
-        return recent.FirstOrDefault();
-    }
 }
 
-// Gumroad API response models
 public class GumroadResponse
 {
     public bool Success { get; set; }

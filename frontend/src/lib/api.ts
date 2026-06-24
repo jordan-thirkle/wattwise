@@ -57,3 +57,8 @@ export async function validateLicenseKey(key: string) {
   });
   return res.json();
 }
+
+export async function startTrial() {
+  const res = await fetch(`${API}/api/license/trial`, { method: 'POST' });
+  return res.json();
+}

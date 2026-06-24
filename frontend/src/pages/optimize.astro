@@ -29,7 +29,9 @@ import Layout from '../layouts/Layout.astro';
     const container = document.getElementById('suggestions-container')!;
     try {
       const summary = await fetchSummary();
-      const suggestions = await fetchSuggestions();
+      const response = await fetchSuggestions();
+      const suggestions = response.suggestions || [];
+      const upgradeHint = response.upgradeHint;
 
       container.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;">
@@ -39,12 +41,23 @@ import Layout from '../layouts/Layout.astro';
         </div>
       `;
 
+      if (upgradeHint) {
+        container.innerHTML += `
+          <div class="card" style="text-align:center;padding:1.5rem;border-color:rgba(99,102,241,0.2);">
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.5rem;">⚡ Optimization Engine</h3>
+            <p style="color:var(--text-secondary);font-size:0.8rem;line-height:1.5;margin-bottom:1rem;">${upgradeHint}</p>
+            <a href="/settings" class="btn-primary" style="font-size:0.8rem;">Unlock Pro — £4.99</a>
+          </div>
+        `;
+        return;
+      }
+
       if (suggestions.length === 0) {
         container.innerHTML += '<div class="card" style="text-align:center;padding:2rem;color:var(--accent-secondary);">Your system is already optimized. No savings found!</div>';
         return;
       }
 
-      const cards = suggestions.map((s: any, i: number) => `
+      const cards = suggestions.map((s: any) => `
         <div class="card card-hover" style="margin-bottom:0.75rem;display:flex;align-items:flex-start;gap:1rem;">
           <div style="font-size:1.5rem;flex-shrink:0;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);border-radius:8px;">
             ${actionIcons[s.actionType] || '✦'}

@@ -35,37 +35,13 @@ hw.Initialize();
 // GET /api/current — live sensor readings
 app.MapGet("/api/current", () =>
 {
-    if (license.IsLocked())
-    {
-        var last = license.GetLastSnapshot();
-        var lockedSummary = store.GetCostSummary(settings);
-        return new CurrentStatus
-        {
-            CpuPowerWatts = last?.CpuPowerWatts ?? 0,
-            GpuPowerWatts = last?.GpuPowerWatts ?? 0,
-            TotalSystemWatts = last?.TotalSystemWatts ?? 0,
-            CostPerHour = last?.CostPerHour ?? 0,
-            CpuTemp = last?.CpuTemp ?? 0,
-            GpuTemp = last?.GpuTemp ?? 0,
-            CpuLoad = last?.CpuLoad ?? 0,
-            GpuLoad = last?.GpuLoad ?? 0,
-            IsIdle = last?.IsIdle ?? true,
-            Timestamp = DateTime.UtcNow,
-            TodayCost = lockedSummary.TodayCost,
-            WeekCost = lockedSummary.WeekCost,
-            MonthEstimate = lockedSummary.MonthEstimate,
-            YearEstimate = lockedSummary.YearEstimate,
-            StandingChargeDaily = lockedSummary.StandingChargeDaily,
-            Locked = true
-        };
-    }
-
     hw.Update();
     var (cpuW, gpuW, cpuT, gpuT, cpuL, gpuL) = hw.GetReadings();
     var totalW = calc.CalculateTotalWatts(cpuW, gpuW);
     var costHr = calc.CalculateCostPerHour(totalW);
     var summary = store.GetCostSummary(settings);
     var idle = opt.IsSystemIdle(cpuL, gpuL, totalW);
+    var tier = license.GetTier();
 
     var snap = new SensorSnapshot
     {
@@ -98,28 +74,54 @@ app.MapGet("/api/current", () =>
         WeekCost = summary.WeekCost,
         MonthEstimate = summary.MonthEstimate,
         YearEstimate = summary.YearEstimate,
-        StandingChargeDaily = summary.StandingChargeDaily
+        StandingChargeDaily = summary.StandingChargeDaily,
+        Tier = tier
     };
 });
 
-// GET /api/summary — cost aggregates
-app.MapGet("/api/summary", () => store.GetCostSummary(settings));
+// GET /api/summary — cost aggregates (free: today only)
+app.MapGet("/api/summary", () =>
+{
+    var summary = store.GetCostSummary(settings);
+    if (!license.IsPro())
+    {
+        return new CostSummary
+        {
+            TodayCost = summary.TodayCost,
+            StandingChargeDaily = summary.StandingChargeDaily,
+            TotalKwhToday = summary.TotalKwhToday,
+            AvgWattsToday = summary.AvgWattsToday,
+            PeakWattsToday = summary.PeakWattsToday,
+            UpgradeHint = "Upgrade to Pro for weekly & monthly estimates"
+        };
+    }
+    return summary;
+});
 
-// GET /api/history?days=7 — hourly history
-app.MapGet("/api/history", (int days) => store.GetHistory(days));
+// GET /api/history?days=7 — hourly history (free: max 1 day)
+app.MapGet("/api/history", (int days) =>
+{
+    var clamped = license.IsPro() ? days : Math.Min(days, 1);
+    return store.GetHistory(clamped);
+});
 
-// GET /api/sparkline?minutes=60 — recent data points for charts
+// GET /api/sparkline?minutes=60 — recent data points (free: max 60 min)
 app.MapGet("/api/sparkline", (int minutes) =>
 {
-    var data = store.GetRecentSnapshots(minutes);
+    var clamped = license.IsPro() ? minutes : Math.Min(minutes, 60);
+    var data = store.GetRecentSnapshots(clamped);
     return data.Select(d => new { t = d.Timestamp, w = d.TotalSystemWatts, c = d.CostPerHour, idle = d.IsIdle });
 });
 
-// GET /api/suggestions — optimization tips
+// GET /api/suggestions — optimization tips (free: empty with hint)
 app.MapGet("/api/suggestions", () =>
 {
+    if (!license.IsPro())
+    {
+        return Results.Ok(new { suggestions = Array.Empty<Suggestion>(), upgradeHint = "Unlock the Optimization Engine with Pro — £4.99 one-time" });
+    }
     var summary = store.GetCostSummary(settings);
-    return opt.Analyze(summary, settings);
+    return Results.Ok(new { suggestions = opt.Analyze(summary, settings), upgradeHint = (string?)null });
 });
 
 // GET /api/settings — current settings
@@ -152,6 +154,13 @@ app.MapPost("/api/license/validate", async (LicenseValidateRequest req) =>
 {
     var result = await license.ValidateKey(req.Key);
     return Results.Ok(result);
+});
+
+// POST /api/license/trial — start 7-day trial (free users only)
+app.MapPost("/api/license/trial", () =>
+{
+    var status = license.StartTrial();
+    return Results.Ok(status);
 });
 
 // GET /api/permissions — admin elevation status

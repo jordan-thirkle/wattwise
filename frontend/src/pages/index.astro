@@ -34,8 +34,9 @@ import Layout from '../layouts/Layout.astro';
         Real-time power monitoring &middot; <span id="update-time" style="font-family:'JetBrains Mono',monospace;">--</span>
       </p>
     </div>
-    <div style="display:flex;gap:0.5rem;">
+    <div style="display:flex;gap:0.5rem;align-items:center;">
       <span class="badge-active" id="status-badge">LIVE</span>
+      <span id="tier-badge" style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.06em;display:none;"></span>
     </div>
   </div>
 
@@ -88,12 +89,15 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <!-- Stat cards row -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;margin-bottom:1rem;">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;margin-bottom:0.35rem;">
     <div class="stat-card"><span class="stat-value" id="stat-today">--</span><span class="stat-label">Today</span></div>
     <div class="stat-card"><span class="stat-value" id="stat-yesterday">--</span><span class="stat-label">Yesterday</span></div>
     <div class="stat-card"><span class="stat-value text-accent-secondary" id="stat-week">--</span><span class="stat-label">This Week</span></div>
     <div class="stat-card"><span class="stat-value text-warning" id="stat-month">--</span><span class="stat-label">Month est.</span></div>
     <div class="stat-card"><span class="stat-value" id="stat-year" style="color:var(--text-secondary);">--</span><span class="stat-label">Year est.</span></div>
+  </div>
+  <div id="upgrade-hint" style="display:none;text-align:center;margin-bottom:1rem;font-size:0.65rem;color:var(--text-tertiary);">
+    <a href="/settings" style="color:var(--accent-primary);text-decoration:none;">Upgrade to Pro →</a>
   </div>
 
   <!-- Sparkline -->
@@ -138,22 +142,25 @@ import Layout from '../layouts/Layout.astro';
         <a href="#" id="lm-buy" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
       </div>
       <!-- Expired mode -->
-      <div id="lm-expired" style="display:none;">
-        <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;color:var(--error);">Trial Ended</h2>
-        <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1rem;">Your 7-day trial has expired. Purchase a licence to continue monitoring your power usage.</p>
-        <div style="margin-bottom:1rem;">
-          <label class="label" for="lm-key-exp">Licence Key</label>
-          <input type="text" id="lm-key-exp" class="input" placeholder="Paste your Gumroad licence key" />
+      <!-- Free tier -->
+      <div id="lm-free" style="display:none;">
+        <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">WattWise Free</h2>
+        <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1rem;">You're on the free tier. Live monitoring is fully unlocked — try Pro for advanced analytics.</p>
+        <button id="lm-start-trial" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Start 7-Day Free Trial</button>
+        <div style="margin-bottom:0.75rem;">
+          <label class="label" for="lm-key">Licence Key</label>
+          <input type="text" id="lm-key" class="input" placeholder="Paste your Gumroad licence key" />
         </div>
-        <button id="lm-activate-exp" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
-        <a href="#" id="lm-buy-exp" class="btn-primary" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+        <button id="lm-activate" class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
+        <a href="#" id="lm-buy" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+        <button id="lm-continue-free" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Continue with Free</button>
       </div>
       <p id="lm-status" style="font-size:0.7rem;margin-top:0.75rem;text-align:center;display:none;"></p>
     </div>
   </div>
 
 <script>
-  import { fetchCurrent, fetchSparkline, fetchLicenseStatus, validateLicenseKey } from '../lib/api';
+  import { fetchCurrent, fetchSparkline, fetchLicenseStatus, validateLicenseKey, startTrial } from '../lib/api';
 
   const sparklineData: { w: number }[] = [];
   const MAX_POINTS = 360;
@@ -233,11 +240,20 @@ import Layout from '../layouts/Layout.astro';
       if (cl) cl.textContent = Math.round(data.cpuLoad || 0) + '%';
       if (glEl) glEl.textContent = Math.round(data.gpuLoad || 0) + '%';
 
-      // Status
+      // Status + tier badge
       const badge = document.getElementById('status-badge');
       if (badge) {
         if (data.isIdle) { badge.className = 'badge-pending'; badge.textContent = 'IDLE'; }
         else { badge.className = 'badge-active'; badge.textContent = 'LIVE'; }
+      }
+      const tierBadge = document.getElementById('tier-badge');
+      if (tierBadge && data.tier) {
+        tierBadge.style.display = 'inline';
+        if (data.tier === 'pro') {
+          tierBadge.className = 'badge-active'; tierBadge.textContent = 'PRO';
+        } else {
+          tierBadge.className = 'badge-paused'; tierBadge.textContent = 'FREE';
+        }
       }
 
       // Sparkline data
@@ -279,10 +295,16 @@ import Layout from '../layouts/Layout.astro';
       const month = document.getElementById('stat-month');
       const year = document.getElementById('stat-year');
       if (today) today.textContent = formatPounds(s.todayCost);
-      if (yesterday) yesterday.textContent = formatPounds(s.yesterdayCost);
-      if (week) week.textContent = formatPounds(s.weekCost);
-      if (month) month.textContent = formatPounds(s.monthEstimate);
-      if (year) year.textContent = formatPounds(s.yearEstimate);
+      if (yesterday) yesterday.textContent = s.yesterdayCost > 0 ? formatPounds(s.yesterdayCost) : '--';
+      if (week) week.textContent = s.weekCost > 0 ? formatPounds(s.weekCost) : '--';
+      if (month) month.textContent = s.monthEstimate > 0 ? formatPounds(s.monthEstimate) : '--';
+      if (year) year.textContent = s.yearEstimate > 0 ? formatPounds(s.yearEstimate) : '--';
+      const hint = document.getElementById('upgrade-hint');
+      if (hint && s.upgradeHint) {
+        hint.style.display = 'block';
+      } else if (hint) {
+        hint.style.display = 'none';
+      }
     } catch {}
   }
 
@@ -297,23 +319,23 @@ import Layout from '../layouts/Layout.astro';
     } catch {}
   })();
 
-  // Licence check
+  // Licence check — show appropriate modal
   (async function checkLicense() {
     try {
       const status = await fetchLicenseStatus();
-      if (status.state === 'trial' || status.state === 'expired') {
-        document.getElementById('license-modal')!.style.display = 'flex';
-        const trialDiv = document.getElementById('lm-trial');
-        const expiredDiv = document.getElementById('lm-expired');
-        const daysRemaining = document.getElementById('lm-days');
-        if (status.state === 'trial') {
-          if (trialDiv) trialDiv.style.display = 'block';
-          if (expiredDiv) expiredDiv.style.display = 'none';
-          if (daysRemaining) daysRemaining.textContent = status.daysRemaining;
-        } else {
-          if (trialDiv) trialDiv.style.display = 'none';
-          if (expiredDiv) expiredDiv.style.display = 'block';
-        }
+      document.getElementById('license-modal')!.style.display = 'flex';
+      const trialDiv = document.getElementById('lm-trial');
+      const freeDiv = document.getElementById('lm-free');
+      const daysRemaining = document.getElementById('lm-days');
+      if (status.state === 'trial') {
+        if (trialDiv) trialDiv.style.display = 'block';
+        if (freeDiv) freeDiv.style.display = 'none';
+        if (daysRemaining) daysRemaining.textContent = status.daysRemaining;
+      } else if (status.state === 'active') {
+        document.getElementById('license-modal')!.style.display = 'none';
+      } else {
+        if (trialDiv) trialDiv.style.display = 'none';
+        if (freeDiv) freeDiv.style.display = 'block';
       }
     } catch {}
   })();
@@ -343,24 +365,25 @@ import Layout from '../layouts/Layout.astro';
     }
   });
 
-  document.getElementById('lm-activate-exp')?.addEventListener('click', async () => {
-    const key = (document.getElementById('lm-key-exp') as HTMLInputElement).value.trim();
-    if (!key) { setLicenseStatus('Please enter a licence key.', false); return; }
-    setLicenseStatus('Validating...', true);
+  document.getElementById('lm-start-trial')?.addEventListener('click', async () => {
+    setLicenseStatus('Starting trial...', true);
     try {
-      const result = await validateLicenseKey(key);
-      if (result.valid) {
-        setLicenseStatus('Licence activated successfully!', true);
-        setTimeout(() => { document.getElementById('license-modal')!.style.display = 'none'; }, 1500);
+      const status = await startTrial();
+      if (status.state === 'trial') {
+        document.getElementById('license-modal')!.style.display = 'none';
       } else {
-        setLicenseStatus(result.message, false);
+        setLicenseStatus('Already on a trial or active licence.', false);
       }
     } catch {
-      setLicenseStatus('Failed to reach the licence server.', false);
+      setLicenseStatus('Failed to start trial.', false);
     }
   });
 
   document.getElementById('lm-continue')?.addEventListener('click', () => {
+    document.getElementById('license-modal')!.style.display = 'none';
+  });
+
+  document.getElementById('lm-continue-free')?.addEventListener('click', () => {
     document.getElementById('license-modal')!.style.display = 'none';
   });
 

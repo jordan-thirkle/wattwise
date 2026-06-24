@@ -31,7 +31,7 @@ public record CurrentStatus
     public double MonthEstimate { get; init; }
     public double YearEstimate { get; init; }
     public double StandingChargeDaily { get; init; }
-    public bool Locked { get; init; }
+    public string Tier { get; init; } = "free";
 }
 
 public record HistoryEntry
@@ -58,6 +58,7 @@ public record CostSummary
     public double PeakWattsToday { get; init; }
     public int IdleHoursToday { get; init; }
     public double IdleCostToday { get; init; }
+    public string? UpgradeHint { get; init; }
 }
 
 public record Suggestion
@@ -80,6 +81,6 @@ public record SettingsDto
     public int DataRetentionDays { get; init; } = 90;
     public string? FirstLaunch { get; init; }
     public string? LicenseKey { get; init; }
-    public string? LicenseStatus { get; init; } = "trial";
+    public string? LicenseStatus { get; init; } = "free";
     public string? LicenseEmail { get; init; }
 }

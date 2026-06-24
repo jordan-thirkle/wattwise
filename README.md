@@ -11,13 +11,20 @@
 
 ## Features
 
+### Free Forever
 - **Live power gauge** — real-time CPU + GPU wattage meter with arc gradient
 - **Cost per hour** — see exactly what your PC costs to run right now
 - **Power breakdown** — CPU vs GPU vs system draw as a stacked bar
 - **24h sparkline** — power usage trend built from live sensor data
-- **History** — hourly data with colour-coded bar charts, sortable table, and CSV export
-- **Optimize** — AI-powered suggestions to reduce idle waste, adjust power settings, and save money
-- **7-day free trial** — full functionality for a week, then licence required
+- **24h history** — hourly data with CSV export
+
+### Pro (£4.99 one-time)
+- **Optimization engine** — AI-powered suggestions to reduce idle waste and save money
+- **Idle waste detection** — tracks idle hours and calculates wasted cost
+- **7d/30d full history** — extended charts and sortable data tables
+- **Week/month/year estimates** — cost projections over time
+- **One-click fixes** — apply powercfg optimizations directly from the app
+- **7-day free trial** — try everything before buying
 
 ## System Requirements
 
@@ -63,14 +70,19 @@ Cost = (Watts / 1000) × Rate × Hours
 
 ## Licence
 
-WattWise includes a **7-day free trial** with full functionality. After the trial:
+WattWise is **free forever** with live monitoring, cost/hour, and 24h history. Pro unlocks the full toolkit.
 
-1. Purchase a licence from [Gumroad](https://jordanthirkle.gumroad.com/l/wattwise) — **£4.99 one-time**
-2. Copy your licence key from the Gumroad receipt email
-3. Open WattWise → paste the key in the licence prompt (or in Settings → Licence)
-4. Click **Activate Licence**
+| Tier | Price | Features |
+|---|---|---|
+| **Free** | £0 | Live gauge, cost/hr, power breakdown, 24h sparkline, CSV export |
+| **Pro** | £4.99 one-time | Everything in Free + optimization engine, 7d/30d history, idle waste detection, week/month/year estimates, one-click fixes |
 
-**Offline use:** Once activated, WattWise trusts your locally-stored licence. If Gumroad's servers are unreachable, the app continues to work normally.
+**To go Pro:**
+1. Start your **7-day free trial** from the licence modal (full Pro features, no payment needed)
+2. Purchase from [Gumroad](https://jordanthirkle.gumroad.com/l/wattwise) — **£4.99 one-time**
+3. Paste your licence key in Settings → Licence → Activate
+
+**Offline use:** Once activated, WattWise trusts your locally-stored licence. No internet required after activation.
 
 ## Tech Stack
 

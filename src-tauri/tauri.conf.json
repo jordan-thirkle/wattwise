@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/jordan-thirkle/wattwise/main/schema.json",
   "productName": "WattWise",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.byjtt.wattwise",
   "build": {
     "frontendDist": "../frontend/dist",

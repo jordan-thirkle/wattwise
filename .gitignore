@@ -1,0 +1,25 @@
+# Dependencies
+frontend/node_modules/
+
+# Build outputs
+backend/bin/
+backend/obj/
+src-tauri/binaries/
+src-tauri/target/
+frontend/dist/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# IDE
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,106 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="History">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+    <h1 style="font-size:1.5rem;font-weight:600;">History</h1>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn-secondary" onclick="loadHistory(1)" id="btn-1d">24h</button>
+      <button class="btn-secondary" onclick="loadHistory(7)" id="btn-7d">7d</button>
+      <button class="btn-secondary" onclick="loadHistory(30)" id="btn-30d">30d</button>
+      <button class="btn-ghost" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <svg id="bar-chart" viewBox="0 0 1000 200" style="width:100%;height:180px;"></svg>
+  </div>
+
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+      <thead>
+        <tr style="text-align:left;color:var(--text-tertiary);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;">
+          <th style="padding:0.5rem;">Time</th>
+          <th style="padding:0.5rem;">Avg Watts</th>
+          <th style="padding:0.5rem;">Peak Watts</th>
+          <th style="padding:0.5rem;">CPU Avg</th>
+          <th style="padding:0.5rem;">GPU Avg</th>
+          <th style="padding:0.5rem;">kWh</th>
+          <th style="padding:0.5rem;text-align:right;">Cost</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="7" style="padding:2rem;text-align:center;color:var(--text-tertiary);">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</Layout>
+
+<script>
+  import { fetchHistory } from '../lib/api';
+
+  (window as any).loadHistory = async function(days: number) {
+    document.querySelectorAll('[id^="btn-"]').forEach(b => (b as HTMLElement).style.background = '');
+    const activeBtn = document.getElementById(`btn-${days}d`);
+    if (activeBtn) activeBtn.style.background = 'rgba(99,102,241,0.15)';
+
+    try {
+      const data = await fetchHistory(days);
+      const tbody = document.getElementById('history-body')!;
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;color:var(--text-tertiary);">No data yet — keep WattWise running</td></tr>';
+        return;
+      }
+
+      const rows = data.slice(0, 48).map((e: any) => `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-secondary);">
+            ${new Date(e.timestamp).toLocaleString()}
+          </td>
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;">${e.avgWatts}W</td>
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;">${e.peakWatts}W</td>
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;">${e.cpuAvgWatts}W</td>
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;">${e.gpuAvgWatts}W</td>
+          <td style="padding:0.5rem;font-family:'JetBrains Mono',monospace;">${e.totalKwh.toFixed(4)}</td>
+          <td style="padding:0.5rem;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:500;">
+            £${e.cost.toFixed(4)}
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.innerHTML = rows;
+
+      // Bar chart
+      const svg = document.getElementById('bar-chart')!;
+      const maxW = Math.max(...data.map((d: any) => d.peakWatts), 100);
+      const bars = data.slice(0, 48).reverse().map((d: any, i: number) => {
+        const h = (d.avgWatts / maxW) * 165;
+        const x = i * (1000 / Math.min(data.length, 48)) + 4;
+        const w = (1000 / Math.min(data.length, 48)) - 8;
+        const color = d.avgWatts > 300 ? 'rgb(239,68,68)' : d.avgWatts > 150 ? 'rgb(245,158,11)' : 'rgb(99,102,241)';
+        return `<rect x="${x}" y="${185 - h}" width="${w}" height="${h}" rx="2" fill="${color}" opacity="0.8">
+          <title>${new Date(d.timestamp).toLocaleString()}: ${d.avgWatts}W avg, £${d.cost.toFixed(4)}</title>
+        </rect>`;
+      }).join('');
+      svg.innerHTML = bars;
+    } catch (e) {
+      const tbody = document.getElementById('history-body')!;
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;color:var(--error);">Backend offline — start wattwise-sensor.exe</td></tr>';
+    }
+  };
+
+  (window as any).exportCSV = async function() {
+    const data = await fetchHistory(30);
+    const csv = 'Timestamp,Avg Watts,Peak Watts,CPU Avg,GPU Avg,kWh,Cost\n' +
+      data.map((e: any) => `${e.timestamp},${e.avgWatts},${e.peakWatts},${e.cpuAvgWatts},${e.gpuAvgWatts},${e.totalKwh},${e.cost}`).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'wattwise-history.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Initial load
+  (window as any).loadHistory(7);
+</script>

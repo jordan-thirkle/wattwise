@@ -1,0 +1,75 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Optimize">
+  <div style="margin-bottom:1.5rem;">
+    <h1 style="font-size:1.5rem;font-weight:600;">Optimize</h1>
+    <p style="color:var(--text-tertiary);font-size:0.8rem;margin-top:0.15rem;">AI-powered suggestions to reduce your electricity bill</p>
+  </div>
+
+  <div id="suggestions-container">
+    <div class="card" style="text-align:center;padding:2rem;color:var(--text-tertiary);">
+      Analyzing your usage patterns...
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { fetchSuggestions, fetchSummary } from '../lib/api';
+
+  const actionIcons: Record<string, string> = {
+    powercfg: '⚙',
+    settings: '⏱',
+    info: '💡',
+    link: '🔗',
+  };
+
+  async function loadOptimizations() {
+    const container = document.getElementById('suggestions-container')!;
+    try {
+      const summary = await fetchSummary();
+      const suggestions = await fetchSuggestions();
+
+      container.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;">
+          <div class="stat-card"><span class="stat-value text-warning">${summary.idleHoursToday}h</span><span class="stat-label">Idle Today</span></div>
+          <div class="stat-card"><span class="stat-value text-error">£${summary.idleCostToday.toFixed(3)}</span><span class="stat-label">Idle Cost Today</span></div>
+          <div class="stat-card"><span class="stat-value" style="color:var(--accent-primary);">${summary.avgWattsToday}W</span><span class="stat-label">Avg Draw Today</span></div>
+        </div>
+      `;
+
+      if (suggestions.length === 0) {
+        container.innerHTML += '<div class="card" style="text-align:center;padding:2rem;color:var(--accent-secondary);">Your system is already optimized. No savings found!</div>';
+        return;
+      }
+
+      const cards = suggestions.map((s: any, i: number) => `
+        <div class="card card-hover" style="margin-bottom:0.75rem;display:flex;align-items:flex-start;gap:1rem;">
+          <div style="font-size:1.5rem;flex-shrink:0;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);border-radius:8px;">
+            ${actionIcons[s.actionType] || '✦'}
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem;">
+              <h3 style="font-size:0.9rem;font-weight:600;">${s.title}</h3>
+              <span class="badge-active" style="font-size:0.55rem;">Save £${s.estimatedMonthlySaving.toFixed(2)}/mo</span>
+            </div>
+            <p style="color:var(--text-secondary);font-size:0.78rem;line-height:1.5;margin-bottom:0.75rem;">${s.description}</p>
+            ${s.actionCommand.startsWith('http') ? 
+              `<a href="${s.actionCommand}" target="_blank" class="btn-secondary" style="font-size:0.7rem;padding:0.3rem 0.75rem;">Learn More</a>` :
+              s.actionType === 'info' ?
+              `<span class="badge-pending">Manual action required</span>` :
+              `<button class="btn-primary" style="font-size:0.7rem;padding:0.3rem 0.75rem;" onclick="applyFix('${s.id}')">Apply Fix</button>`
+            }
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML += cards;
+    } catch (e) {
+      container.innerHTML = '<div class="card" style="text-align:center;padding:2rem;color:var(--error);">Backend offline — start wattwise-sensor.exe to analyze</div>';
+    }
+  }
+
+  loadOptimizations();
+</script>

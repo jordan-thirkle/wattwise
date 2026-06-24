@@ -1,0 +1,395 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Dashboard">
+  <!-- Offline Overlay -->
+  <div id="offline-overlay" style="position:fixed;top:0;left:220px;right:0;bottom:0;background:rgba(10,10,12,0.85);display:none;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:1rem;">
+    <div style="width:48px;height:48px;border-radius:50%;border:3px solid rgba(239,68,68,0.3);animation:pulse-offline 2s infinite;"></div>
+    <div style="text-align:center;">
+      <h2 style="font-size:1.25rem;font-weight:600;color:var(--text-primary);">Sensor Offline</h2>
+      <p style="color:var(--text-tertiary);font-size:0.8rem;margin-top:0.25rem;">WattWise sensor backend is not responding.<br/>It should restart automatically.</p>
+    </div>
+  </div>
+  <style>
+    @keyframes pulse-offline {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+  </style>
+
+  <!-- Permissions Modal -->
+  <div id="permissions-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,12,0.92);display:none;align-items:center;justify-content:center;z-index:200;">
+    <div class="card" style="max-width:440px;width:100%;text-align:center;padding:2rem;">
+      <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.75rem;">Administrator Rights Required</h2>
+      <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1.5rem;">WattWise needs administrator access to read your CPU and GPU power sensors. Without elevation, power monitoring cannot function.</p>
+      <button id="relaunch-btn" class="btn-primary" style="width:100%;justify-content:center;">Relaunch as Administrator</button>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+    <div>
+      <h1 style="font-size:1.5rem;font-weight:600;">Dashboard</h1>
+      <p style="color:var(--text-tertiary);font-size:0.8rem;margin-top:0.15rem;">
+        Real-time power monitoring &middot; <span id="update-time" style="font-family:'JetBrains Mono',monospace;">--</span>
+      </p>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <span class="badge-active" id="status-badge">LIVE</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+    <!-- Power Gauge -->
+    <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:220px;flex-direction:column;">
+      <svg id="power-gauge" viewBox="0 0 200 120" style="width:200px;height:120px;">
+        <defs>
+          <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="rgb(34,197,94)"/>
+            <stop offset="50%" stop-color="rgb(245,158,11)"/>
+            <stop offset="100%" stop-color="rgb(239,68,68)"/>
+          </linearGradient>
+        </defs>
+        <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+        <path id="gauge-fill" d="M 20 110 A 80 80 0 0 1 100 30" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"/>
+        <text id="gauge-watts" x="100" y="85" text-anchor="middle" fill="rgb(250,250,250)" font-family="JetBrains Mono" font-size="28" font-weight="500">0</text>
+        <text x="100" y="108" text-anchor="middle" fill="rgb(113,113,122)" font-size="9" text-transform="uppercase" letter-spacing="0.1em">WATTS</text>
+      </svg>
+      <div style="text-align:center;margin-top:0.5rem;">
+        <div id="gpu-label" style="color:var(--text-tertiary);font-size:0.7rem;font-family:'JetBrains Mono',monospace;">GPU 0W &middot; CPU 0W</div>
+      </div>
+    </div>
+
+    <!-- Cost + Breakdown -->
+    <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
+      <div>
+        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:0.25rem;">Cost per hour</div>
+        <div style="display:flex;align-items:baseline;gap:0.25rem;">
+          <span style="font-size:2.5rem;font-weight:600;font-family:'JetBrains Mono',monospace;" id="cost-hr">--</span>
+        </div>
+        <div style="color:var(--text-tertiary);font-size:0.7rem;margin-top:0.25rem;font-family:'JetBrains Mono',monospace;">
+          Standing: £<span id="stand-charge">0.64</span>/day
+        </div>
+      </div>
+      <div style="margin-top:1rem;">
+        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:0.5rem;">Power breakdown</div>
+        <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;background:rgba(255,255,255,0.05);margin-bottom:0.4rem;">
+          <div id="bar-cpu" style="height:100%;background:rgb(99,102,241);width:0%;transition:width 0.5s;"></div>
+          <div id="bar-gpu" style="height:100%;background:rgb(52,211,153);width:0%;transition:width 0.5s;"></div>
+          <div id="bar-other" style="height:100%;background:rgba(255,255,255,0.1);width:0%;transition:width 0.5s;"></div>
+        </div>
+        <div style="display:flex;gap:0.8rem;font-size:0.65rem;font-family:'JetBrains Mono',monospace;">
+          <span style="color:rgb(99,102,241);">CPU <strong id="cpu-w-label">0W</strong></span>
+          <span style="color:rgb(52,211,153);">GPU <strong id="gpu-w-label">0W</strong></span>
+          <span style="color:var(--text-quaternary);">Other <strong id="other-w-label">0W</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat cards row -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;margin-bottom:1rem;">
+    <div class="stat-card"><span class="stat-value" id="stat-today">--</span><span class="stat-label">Today</span></div>
+    <div class="stat-card"><span class="stat-value" id="stat-yesterday">--</span><span class="stat-label">Yesterday</span></div>
+    <div class="stat-card"><span class="stat-value text-accent-secondary" id="stat-week">--</span><span class="stat-label">This Week</span></div>
+    <div class="stat-card"><span class="stat-value text-warning" id="stat-month">--</span><span class="stat-label">Month est.</span></div>
+    <div class="stat-card"><span class="stat-value" id="stat-year" style="color:var(--text-secondary);">--</span><span class="stat-label">Year est.</span></div>
+  </div>
+
+  <!-- Sparkline -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+      <div>
+        <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);">24-Hour Trend</span>
+        <span style="margin-left:0.5rem;font-size:0.6rem;color:var(--text-quaternary);font-family:'JetBrains Mono',monospace;" id="spark-label">--</span>
+      </div>
+      <div style="display:flex;gap:0.3rem;font-size:0.6rem;font-family:'JetBrains Mono',monospace;">
+        <span style="color:var(--text-tertiary);">Peak <strong id="spark-peak" style="color:var(--text-primary);">0W</strong></span>
+        <span style="color:var(--text-tertiary);">Avg <strong id="spark-avg" style="color:var(--text-primary);">0W</strong></span>
+      </div>
+    </div>
+    <svg id="sparkline-svg" viewBox="0 0 1000 100" style="width:100%;height:60px;">
+      <polyline id="sparkline-path" fill="none" stroke="rgb(99,102,241)" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- System info row -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">
+    <div class="stat-card"><span class="stat-value" id="cpu-temp" style="color:rgb(99,102,241);">--°C</span><span class="stat-label">CPU Temp</span></div>
+    <div class="stat-card"><span class="stat-value" id="gpu-temp" style="color:rgb(52,211,153);">--°C</span><span class="stat-label">GPU Temp</span></div>
+    <div class="stat-card"><span class="stat-value" id="cpu-load" style="color:var(--text-secondary);">--%</span><span class="stat-label">CPU Load</span></div>
+    <div class="stat-card"><span class="stat-value" id="gpu-load" style="color:var(--text-secondary);">--%</span><span class="stat-label">GPU Load</span></div>
+  </div>
+</Layout>
+
+  <!-- Licence Modal -->
+  <div id="license-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,12,0.92);display:none;align-items:center;justify-content:center;z-index:300;">
+    <div class="card" style="max-width:440px;width:100%;padding:2rem;">
+      <!-- Trial mode -->
+      <div id="lm-trial" style="display:none;">
+        <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">7-Day Free Trial</h2>
+        <p style="color:var(--accent-secondary);font-size:0.85rem;margin-bottom:1rem;"><span id="lm-days">7</span> days remaining</p>
+        <div style="margin-bottom:1rem;">
+          <label class="label" for="lm-key">Licence Key</label>
+          <input type="text" id="lm-key" class="input" placeholder="Paste your Gumroad licence key" />
+        </div>
+        <button id="lm-activate" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
+        <button id="lm-continue" class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Continue Trial</button>
+        <a href="#" id="lm-buy" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+      </div>
+      <!-- Expired mode -->
+      <div id="lm-expired" style="display:none;">
+        <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;color:var(--error);">Trial Ended</h2>
+        <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1rem;">Your 7-day trial has expired. Purchase a licence to continue monitoring your power usage.</p>
+        <div style="margin-bottom:1rem;">
+          <label class="label" for="lm-key-exp">Licence Key</label>
+          <input type="text" id="lm-key-exp" class="input" placeholder="Paste your Gumroad licence key" />
+        </div>
+        <button id="lm-activate-exp" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
+        <a href="#" id="lm-buy-exp" class="btn-primary" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+      </div>
+      <p id="lm-status" style="font-size:0.7rem;margin-top:0.75rem;text-align:center;display:none;"></p>
+    </div>
+  </div>
+
+<script>
+  import { fetchCurrent, fetchSparkline, fetchLicenseStatus, validateLicenseKey } from '../lib/api';
+
+  const sparklineData: { w: number }[] = [];
+  const MAX_POINTS = 360;
+
+  function formatCost(p: number) {
+    return '£' + (p || 0).toFixed(4);
+  }
+
+  function formatPounds(p: number) {
+    return '£' + (p || 0).toFixed(2);
+  }
+
+  function setGauge(watts: number) {
+    const maxW = 500;
+    const pct = Math.min(watts / maxW, 1);
+    const angle = -180 + (pct * 180);
+    const rad = (angle * Math.PI) / 180;
+    const cx = 100, cy = 110, r = 80;
+    const x = cx + r * Math.cos(rad);
+    const y = cy + r * Math.sin(rad);
+    const path = document.getElementById('gauge-fill');
+    if (path) path.setAttribute('d', `M 20 110 A 80 80 0 ${pct > 0.5 ? '1' : '0'} 1 ${x} ${y}`);
+    const txt = document.getElementById('gauge-watts');
+    if (txt) txt.textContent = Math.round(watts).toString();
+  }
+
+  async function update() {
+    try {
+      const data = await fetchCurrent();
+      const ts = document.getElementById('update-time');
+      if (ts) ts.textContent = new Date().toLocaleTimeString();
+
+      // Gauge
+      setGauge(data.totalSystemWatts);
+
+      // Cost
+      const costEl = document.getElementById('cost-hr');
+      if (costEl) costEl.textContent = formatCost(data.costPerHour);
+      const standEl = document.getElementById('stand-charge');
+      if (standEl) standEl.textContent = (data.standingChargeDaily || 0.64).toFixed(2);
+
+      // GPU/CPU labels
+      const gl = document.getElementById('gpu-label');
+      if (gl) gl.textContent = `GPU ${Math.round(data.gpuPowerWatts)}W · CPU ${Math.round(data.cpuPowerWatts)}W`;
+
+      // Power bar
+      const total = data.totalSystemWatts || 1;
+      const cpuPct = (data.cpuPowerWatts / total * 100).toFixed(0);
+      const gpuPct = (data.gpuPowerWatts / total * 100).toFixed(0);
+      const otherPct = (100 - parseInt(cpuPct) - parseInt(gpuPct)).toString();
+
+      const barCpu = document.getElementById('bar-cpu');
+      const barGpu = document.getElementById('bar-gpu');
+      const barOther = document.getElementById('bar-other');
+      if (barCpu) barCpu.style.width = cpuPct + '%';
+      if (barGpu) barGpu.style.width = gpuPct + '%';
+      if (barOther) barOther.style.width = otherPct + '%';
+
+      const cpuLabel = document.getElementById('cpu-w-label');
+      const gpuLabel = document.getElementById('gpu-w-label');
+      const otherLabel = document.getElementById('other-w-label');
+      if (cpuLabel) cpuLabel.textContent = Math.round(data.cpuPowerWatts) + 'W';
+      if (gpuLabel) gpuLabel.textContent = Math.round(data.gpuPowerWatts) + 'W';
+      if (otherLabel) otherLabel.textContent = Math.round(data.totalSystemWatts - data.cpuPowerWatts - data.gpuPowerWatts) + 'W';
+
+      // Stats
+      if (document.getElementById('stat-today')) document.getElementById('stat-today')!.textContent = formatPounds(data.todayCost);
+      // We'll update yesterday/week from a separate summary call
+
+      // Temps and loads
+      const ct = document.getElementById('cpu-temp');
+      const gt = document.getElementById('gpu-temp');
+      const cl = document.getElementById('cpu-load');
+      const glEl = document.getElementById('gpu-load');
+      if (ct) ct.textContent = Math.round(data.cpuTemp || 0) + '°C';
+      if (gt) gt.textContent = Math.round(data.gpuTemp || 0) + '°C';
+      if (cl) cl.textContent = Math.round(data.cpuLoad || 0) + '%';
+      if (glEl) glEl.textContent = Math.round(data.gpuLoad || 0) + '%';
+
+      // Status
+      const badge = document.getElementById('status-badge');
+      if (badge) {
+        if (data.isIdle) { badge.className = 'badge-pending'; badge.textContent = 'IDLE'; }
+        else { badge.className = 'badge-active'; badge.textContent = 'LIVE'; }
+      }
+
+      // Sparkline data
+      sparklineData.push({ w: data.totalSystemWatts });
+      if (sparklineData.length > MAX_POINTS) sparklineData.shift();
+
+      // Update sparkline SVG
+      const maxW = Math.max(...sparklineData.map(d => d.w), 50);
+      const points = sparklineData.map((d, i) => {
+        const x = (i / (sparklineData.length - 1)) * 1000;
+        const y = 100 - ((d.w / maxW) * 85);
+        return `${x},${y}`;
+      }).join(' ');
+
+      const spPath = document.getElementById('sparkline-path');
+      if (spPath) spPath.setAttribute('points', points);
+
+      const spPeak = document.getElementById('spark-peak');
+      const spAvg = document.getElementById('spark-avg');
+      const spLabel = document.getElementById('spark-label');
+      if (spPeak) spPeak.textContent = Math.round(maxW) + 'W';
+      if (spAvg) spAvg.textContent = Math.round(sparklineData.reduce((a,b) => a + b.w, 0) / sparklineData.length) + 'W';
+      if (spLabel) spLabel.textContent = sparklineData.length + ' readings';
+
+    } catch (e) {
+      const badge = document.getElementById('status-badge');
+      if (badge) { badge.className = 'badge-error'; badge.textContent = 'OFFLINE'; }
+    }
+  }
+
+  // Update summary stats periodically
+  async function updateSummary() {
+    try {
+      const { fetchSummary } = await import('../lib/api');
+      const s = await fetchSummary();
+      const today = document.getElementById('stat-today');
+      const yesterday = document.getElementById('stat-yesterday');
+      const week = document.getElementById('stat-week');
+      const month = document.getElementById('stat-month');
+      const year = document.getElementById('stat-year');
+      if (today) today.textContent = formatPounds(s.todayCost);
+      if (yesterday) yesterday.textContent = formatPounds(s.yesterdayCost);
+      if (week) week.textContent = formatPounds(s.weekCost);
+      if (month) month.textContent = formatPounds(s.monthEstimate);
+      if (year) year.textContent = formatPounds(s.yearEstimate);
+    } catch {}
+  }
+
+  // Permissions check on first load
+  (async function checkPermissions() {
+    try {
+      const { fetchPermissions } = await import('../lib/api');
+      const perms = await fetchPermissions();
+      if (perms.needsElevation) {
+        document.getElementById('permissions-modal')!.style.display = 'flex';
+      }
+    } catch {}
+  })();
+
+  // Licence check
+  (async function checkLicense() {
+    try {
+      const status = await fetchLicenseStatus();
+      if (status.state === 'trial' || status.state === 'expired') {
+        document.getElementById('license-modal')!.style.display = 'flex';
+        const trialDiv = document.getElementById('lm-trial');
+        const expiredDiv = document.getElementById('lm-expired');
+        const daysRemaining = document.getElementById('lm-days');
+        if (status.state === 'trial') {
+          if (trialDiv) trialDiv.style.display = 'block';
+          if (expiredDiv) expiredDiv.style.display = 'none';
+          if (daysRemaining) daysRemaining.textContent = status.daysRemaining;
+        } else {
+          if (trialDiv) trialDiv.style.display = 'none';
+          if (expiredDiv) expiredDiv.style.display = 'block';
+        }
+      }
+    } catch {}
+  })();
+
+  // Licence modal button handlers
+  function setLicenseStatus(msg: string, ok: boolean) {
+    const el = document.getElementById('lm-status')!;
+    el.textContent = msg;
+    el.style.color = ok ? 'var(--accent-secondary)' : 'var(--error)';
+    el.style.display = 'block';
+  }
+
+  document.getElementById('lm-activate')?.addEventListener('click', async () => {
+    const key = (document.getElementById('lm-key') as HTMLInputElement).value.trim();
+    if (!key) { setLicenseStatus('Please enter a licence key.', false); return; }
+    setLicenseStatus('Validating...', true);
+    try {
+      const result = await validateLicenseKey(key);
+      if (result.valid) {
+        setLicenseStatus('Licence activated successfully!', true);
+        setTimeout(() => { document.getElementById('license-modal')!.style.display = 'none'; }, 1500);
+      } else {
+        setLicenseStatus(result.message, false);
+      }
+    } catch {
+      setLicenseStatus('Failed to reach the licence server.', false);
+    }
+  });
+
+  document.getElementById('lm-activate-exp')?.addEventListener('click', async () => {
+    const key = (document.getElementById('lm-key-exp') as HTMLInputElement).value.trim();
+    if (!key) { setLicenseStatus('Please enter a licence key.', false); return; }
+    setLicenseStatus('Validating...', true);
+    try {
+      const result = await validateLicenseKey(key);
+      if (result.valid) {
+        setLicenseStatus('Licence activated successfully!', true);
+        setTimeout(() => { document.getElementById('license-modal')!.style.display = 'none'; }, 1500);
+      } else {
+        setLicenseStatus(result.message, false);
+      }
+    } catch {
+      setLicenseStatus('Failed to reach the licence server.', false);
+    }
+  });
+
+  document.getElementById('lm-continue')?.addEventListener('click', () => {
+    document.getElementById('license-modal')!.style.display = 'none';
+  });
+
+  update();
+  updateSummary();
+  setInterval(update, 1000);
+  setInterval(updateSummary, 60000);
+
+  document.getElementById('relaunch-btn')?.addEventListener('click', async () => {
+    if (window.__TAURI__) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('relaunch_admin');
+    } else {
+      alert('This feature requires the WattWise desktop app.');
+    }
+  });
+
+  // Offline overlay — dim dashboard when sensor is down
+  let wasOnline = true;
+  const offlineOverlay = document.getElementById('offline-overlay');
+  const offlineVisibility = () => {
+    const online = window.__SENSOR_ONLINE__;
+    if (online && !wasOnline) {
+      if (offlineOverlay) offlineOverlay.style.display = 'none';
+      wasOnline = true;
+    } else if (!online && wasOnline) {
+      if (offlineOverlay) offlineOverlay.style.display = 'flex';
+      wasOnline = false;
+    }
+  };
+  setInterval(offlineVisibility, 500);
+</script>

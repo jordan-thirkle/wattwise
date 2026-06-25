@@ -96,8 +96,17 @@ import Layout from '../layouts/Layout.astro';
     <div class="stat-card"><span class="stat-value text-warning" id="stat-month">--</span><span class="stat-label">Month est.</span></div>
     <div class="stat-card"><span class="stat-value" id="stat-year" style="color:var(--text-secondary);">--</span><span class="stat-label">Year est.</span></div>
   </div>
-  <div id="upgrade-hint" style="display:none;text-align:center;margin-bottom:1rem;font-size:0.65rem;color:var(--text-tertiary);">
-    <a href="/settings" style="color:var(--accent-primary);text-decoration:none;">Upgrade to Pro →</a>
+  <div id="upgrade-hint" style="display:none;margin-bottom:1rem;">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;border-color:rgba(99,102,241,0.15);">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span class="badge-active" style="font-size:0.55rem;">Pro</span>
+        <span style="color:var(--text-secondary);font-size:0.7rem;">Unlock week/month/year estimates + optimization engine</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <a href="/settings" class="btn-primary" style="font-size:0.65rem;padding:0.3rem 0.75rem;text-decoration:none;">Start Free Trial</a>
+        <a href="/settings" class="btn-ghost" style="font-size:0.6rem;padding:0.3rem 0.5rem;text-decoration:none;">Buy £4.99</a>
+      </div>
+    </div>
   </div>
 
   <!-- Sparkline -->

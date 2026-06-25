@@ -42,12 +42,33 @@ import Layout from '../layouts/Layout.astro';
       `;
 
       if (upgradeHint) {
+        const idleCost = summary.idleCostToday || 0;
+        const idleHrs = summary.idleHoursToday || 0;
+        const avgWatts = summary.avgWattsToday || 0;
         container.innerHTML += `
-          <div class="card" style="text-align:center;padding:1.5rem;border-color:rgba(99,102,241,0.2);">
-            <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.5rem;">⚡ Optimization Engine</h3>
-            <p style="color:var(--text-secondary);font-size:0.8rem;line-height:1.5;margin-bottom:1rem;">${upgradeHint}</p>
-            <a href="/settings" class="btn-primary" style="font-size:0.8rem;">Unlock Pro — £4.99</a>
+          <div class="card" style="text-align:center;padding:1.75rem;border-color:rgba(99,102,241,0.25);margin-bottom:0.75rem;">
+            <span class="badge-active" style="margin-bottom:0.5rem;display:inline-block;">Pro Feature</span>
+            <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Optimization Engine</h3>
+            <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1.25rem;">AI-powered analysis that finds exactly where your electricity money is going — and fixes it in one click.</p>
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:0.75rem;">
+              <a href="/settings" class="btn-primary" style="font-size:0.8rem;text-decoration:none;">Start 7-Day Free Trial</a>
+              <a href="/settings" class="btn-secondary" style="font-size:0.8rem;text-decoration:none;">Buy Pro £4.99</a>
+            </div>
           </div>
+          ${idleHrs > 0 ? `
+          <div class="card" style="text-align:center;padding:1rem;border-color:rgba(255,255,255,0.05);margin-bottom:0.75rem;">
+            <p style="color:var(--text-tertiary);font-size:0.8rem;line-height:1.5;">
+              <span style="color:var(--text-secondary);">Your PC idled for <strong style="color:var(--warning);">${idleHrs}h</strong> today at ~<strong style="color:var(--text-primary);">${avgWatts}W</strong>, costing <strong style="color:var(--error);">£${idleCost.toFixed(3)}</strong>.</span><br/>
+              <span style="color:var(--accent-secondary);">Pro would detect this automatically and suggest a fix.</span>
+            </p>
+          </div>
+          ` : `
+          <div class="card" style="text-align:center;padding:1rem;border-color:rgba(255,255,255,0.05);margin-bottom:0.75rem;">
+            <p style="color:var(--text-tertiary);font-size:0.8rem;line-height:1.5;">
+              <span style="color:var(--text-secondary);">Pro scans your usage patterns and finds specific ways to save — like enabling aggressive hibernate during idle hours, or flagging background apps that keep your CPU awake.</span>
+            </p>
+          </div>
+          `}
         `;
         return;
       }

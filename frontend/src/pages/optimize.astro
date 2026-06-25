@@ -90,10 +90,10 @@ import Layout from '../layouts/Layout.astro';
             </div>
             <p style="color:var(--text-secondary);font-size:0.78rem;line-height:1.5;margin-bottom:0.75rem;">${s.description}</p>
             ${s.actionCommand.startsWith('http') ? 
-              `<a href="${s.actionCommand}" target="_blank" class="btn-secondary" style="font-size:0.7rem;padding:0.3rem 0.75rem;">Learn More</a>` :
+              `<a href="${s.actionCommand}" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="font-size:0.7rem;padding:0.3rem 0.75rem;">Learn More</a>` :
               s.actionType === 'info' ?
               `<span class="badge-pending">Manual action required</span>` :
-              `<button class="btn-primary" style="font-size:0.7rem;padding:0.3rem 0.75rem;" onclick="applyFix('${s.id}')">Apply Fix</button>`
+              `<a href="/settings" class="btn-primary" style="font-size:0.7rem;padding:0.3rem 0.75rem;text-decoration:none;">Apply Fix →</a>`
             }
           </div>
         </div>
@@ -101,7 +101,10 @@ import Layout from '../layouts/Layout.astro';
 
       container.innerHTML += cards;
     } catch (e) {
-      container.innerHTML = '<div class="card" style="text-align:center;padding:2rem;color:var(--error);">Backend offline — start wattwise-sensor.exe to analyze</div>';
+      const existing = container.querySelector('.card');
+      if (!existing) {
+        container.innerHTML = '<div class="card" style="text-align:center;padding:2rem;color:var(--error);">Backend offline — start wattwise-sensor.exe to analyze</div>';
+      }
     }
   }
 

@@ -91,14 +91,18 @@ import Layout from '../layouts/Layout.astro';
   };
 
   (window as any).exportCSV = async function() {
-    const data = await fetchHistory(30);
-    const csv = 'Timestamp,Avg Watts,Peak Watts,CPU Avg,GPU Avg,kWh,Cost\n' +
-      data.map((e: any) => `${e.timestamp},${e.avgWatts},${e.peakWatts},${e.cpuAvgWatts},${e.gpuAvgWatts},${e.totalKwh},${e.cost}`).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'wattwise-history.csv'; a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const data = await fetchHistory(30);
+      const csv = 'Timestamp,Avg Watts,Peak Watts,CPU Avg,GPU Avg,kWh,Cost\n' +
+        data.map((e: any) => `${e.timestamp},${e.avgWatts},${e.peakWatts},${e.cpuAvgWatts},${e.gpuAvgWatts},${e.totalKwh},${e.cost}`).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'wattwise-history.csv'; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to export. Is the backend running?');
+    }
   };
 
   // Initial load

@@ -133,7 +133,6 @@ import Layout from '../layouts/Layout.astro';
     <div class="stat-card"><span class="stat-value" id="cpu-load" style="color:var(--text-secondary);">--%</span><span class="stat-label">CPU Load</span></div>
     <div class="stat-card"><span class="stat-value" id="gpu-load" style="color:var(--text-secondary);">--%</span><span class="stat-label">GPU Load</span></div>
   </div>
-</Layout>
 
   <!-- Licence Modal -->
   <div id="license-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,12,0.92);display:none;align-items:center;justify-content:center;z-index:300;">
@@ -143,33 +142,33 @@ import Layout from '../layouts/Layout.astro';
         <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">7-Day Free Trial</h2>
         <p style="color:var(--accent-secondary);font-size:0.85rem;margin-bottom:1rem;"><span id="lm-days">7</span> days remaining</p>
         <div style="margin-bottom:1rem;">
-          <label class="label" for="lm-key">Licence Key</label>
-          <input type="text" id="lm-key" class="input" placeholder="Paste your Gumroad licence key" />
+          <label class="label" for="lm-key-trial">Licence Key</label>
+          <input type="text" id="lm-key-trial" class="input" placeholder="Paste your Gumroad licence key" />
         </div>
-        <button id="lm-activate" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
+        <button id="lm-activate-trial" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
         <button id="lm-continue" class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Continue Trial</button>
-        <a href="#" id="lm-buy" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+        <a href="https://jordanthirkle.gumroad.com/l/wattwise" target="_blank" rel="noopener noreferrer" id="lm-buy-trial" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
       </div>
-      <!-- Expired mode -->
       <!-- Free tier -->
       <div id="lm-free" style="display:none;">
         <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">WattWise Free</h2>
         <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:1rem;">You're on the free tier. Live monitoring is fully unlocked — try Pro for advanced analytics.</p>
         <button id="lm-start-trial" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Start 7-Day Free Trial</button>
         <div style="margin-bottom:0.75rem;">
-          <label class="label" for="lm-key">Licence Key</label>
-          <input type="text" id="lm-key" class="input" placeholder="Paste your Gumroad licence key" />
+          <label class="label" for="lm-key-free">Licence Key</label>
+          <input type="text" id="lm-key-free" class="input" placeholder="Paste your Gumroad licence key" />
         </div>
-        <button id="lm-activate" class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
-        <a href="#" id="lm-buy" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
+        <button id="lm-activate-free" class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:0.5rem;">Activate Licence</button>
+        <a href="https://jordanthirkle.gumroad.com/l/wattwise" target="_blank" rel="noopener noreferrer" id="lm-buy-free" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Buy Licence — £4.99</a>
         <button id="lm-continue-free" class="btn-ghost" style="width:100%;justify-content:center;display:flex;">Continue with Free</button>
       </div>
       <p id="lm-status" style="font-size:0.7rem;margin-top:0.75rem;text-align:center;display:none;"></p>
     </div>
   </div>
+</Layout>
 
 <script>
-  import { fetchCurrent, fetchSparkline, fetchLicenseStatus, validateLicenseKey, startTrial } from '../lib/api';
+  import { fetchCurrent, fetchLicenseStatus, validateLicenseKey, startTrial } from '../lib/api';
 
   const sparklineData: { w: number }[] = [];
   const MAX_POINTS = 360;
@@ -287,7 +286,7 @@ import Layout from '../layouts/Layout.astro';
       if (spAvg) spAvg.textContent = Math.round(sparklineData.reduce((a,b) => a + b.w, 0) / sparklineData.length) + 'W';
       if (spLabel) spLabel.textContent = sparklineData.length + ' readings';
 
-    } catch (e) {
+    } catch {
       const badge = document.getElementById('status-badge');
       if (badge) { badge.className = 'badge-error'; badge.textContent = 'OFFLINE'; }
     }
@@ -314,7 +313,7 @@ import Layout from '../layouts/Layout.astro';
       } else if (hint) {
         hint.style.display = 'none';
       }
-    } catch {}
+    } catch { /* backend unavailable */ }
   }
 
   // Permissions check on first load
@@ -322,10 +321,10 @@ import Layout from '../layouts/Layout.astro';
     try {
       const { fetchPermissions } = await import('../lib/api');
       const perms = await fetchPermissions();
-      if (perms.needsElevation) {
+      if (perms?.needsElevation) {
         document.getElementById('permissions-modal')!.style.display = 'flex';
       }
-    } catch {}
+    } catch { /* skip if backend unavailable */ }
   })();
 
   // Licence check — show appropriate modal
@@ -346,7 +345,7 @@ import Layout from '../layouts/Layout.astro';
         if (trialDiv) trialDiv.style.display = 'none';
         if (freeDiv) freeDiv.style.display = 'block';
       }
-    } catch {}
+    } catch { /* skip if backend unavailable */ }
   })();
 
   // Licence modal button handlers
@@ -357,8 +356,9 @@ import Layout from '../layouts/Layout.astro';
     el.style.display = 'block';
   }
 
-  document.getElementById('lm-activate')?.addEventListener('click', async () => {
-    const key = (document.getElementById('lm-key') as HTMLInputElement).value.trim();
+  async function handleActivate(keyInputId: string) {
+    const input = document.getElementById(keyInputId) as HTMLInputElement | null;
+    const key = input?.value?.trim() || '';
     if (!key) { setLicenseStatus('Please enter a licence key.', false); return; }
     setLicenseStatus('Validating...', true);
     try {
@@ -372,7 +372,10 @@ import Layout from '../layouts/Layout.astro';
     } catch {
       setLicenseStatus('Failed to reach the licence server.', false);
     }
-  });
+  }
+
+  document.getElementById('lm-activate-trial')?.addEventListener('click', () => handleActivate('lm-key-trial'));
+  document.getElementById('lm-activate-free')?.addEventListener('click', () => handleActivate('lm-key-free'));
 
   document.getElementById('lm-start-trial')?.addEventListener('click', async () => {
     setLicenseStatus('Starting trial...', true);

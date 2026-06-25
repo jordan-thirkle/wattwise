@@ -1,64 +1,55 @@
 const API = 'http://localhost:45892';
 
-export async function fetchCurrent() {
-  const res = await fetch(`${API}/api/current`);
+async function safeFetch(url: string, options?: RequestInit) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function fetchCurrent() {
+  return safeFetch(`${API}/api/current`);
 }
 
 export async function fetchSummary() {
-  const res = await fetch(`${API}/api/summary`);
-  return res.json();
+  return safeFetch(`${API}/api/summary`);
 }
 
 export async function fetchHistory(days: number) {
-  const res = await fetch(`${API}/api/history?days=${days}`);
-  return res.json();
-}
-
-export async function fetchSparkline(minutes: number) {
-  const res = await fetch(`${API}/api/sparkline?minutes=${minutes}`);
-  return res.json();
+  return safeFetch(`${API}/api/history?days=${days}`);
 }
 
 export async function fetchSuggestions() {
-  const res = await fetch(`${API}/api/suggestions`);
-  return res.json();
+  return safeFetch(`${API}/api/suggestions`);
 }
 
 export async function fetchPermissions() {
-  const res = await fetch(`${API}/api/permissions`);
-  return res.json();
+  return safeFetch(`${API}/api/permissions`);
 }
 
 export async function fetchSettings() {
-  const res = await fetch(`${API}/api/settings`);
-  return res.json();
+  return safeFetch(`${API}/api/settings`);
 }
 
-export async function updateSettings(settings: any) {
-  const res = await fetch(`${API}/api/settings`, {
+export async function updateSettings(settings: Record<string, unknown>) {
+  return safeFetch(`${API}/api/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
-  return res.json();
 }
 
 export async function fetchLicenseStatus() {
-  const res = await fetch(`${API}/api/license/status`);
-  return res.json();
+  return safeFetch(`${API}/api/license/status`);
 }
 
 export async function validateLicenseKey(key: string) {
-  const res = await fetch(`${API}/api/license/validate`, {
+  return safeFetch(`${API}/api/license/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key }),
   });
-  return res.json();
 }
 
 export async function startTrial() {
-  const res = await fetch(`${API}/api/license/trial`, { method: 'POST' });
-  return res.json();
+  return safeFetch(`${API}/api/license/trial`, { method: 'POST' });
 }

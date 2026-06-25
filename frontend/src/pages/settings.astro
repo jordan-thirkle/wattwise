@@ -59,19 +59,19 @@ import Layout from '../layouts/Layout.astro';
       <button id="lic-activate" class="btn-secondary">Activate</button>
       <span id="lic-result" style="font-size:0.7rem;font-family:'JetBrains Mono',monospace;display:none;"></span>
     </div>
-    <a href="#" id="lic-buy" class="btn-ghost" style="display:inline-flex;">Buy Licence — £4.99</a>
+    <a href="https://jordanthirkle.gumroad.com/l/wattwise" target="_blank" rel="noopener noreferrer" id="lic-buy" class="btn-ghost" style="display:inline-flex;">Buy Licence — £4.99</a>
     <p style="color:var(--text-quaternary);font-size:0.6rem;margin-top:0.6rem;line-height:1.4;">WattWise Pro is £4.99 one-time. It funds development and keeps the free tier ad-free forever.</p>
   </div>
 
   <div class="card" style="max-width:500px;">
     <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem;">About WattWise</h3>
     <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;">
-      <p>v1.0.1 &middot; Built with <a href="https://ui.byjtt.com" target="_blank" style="color:var(--accent-primary);">ByJT UI</a></p>
-      <p style="margin-top:0.35rem;">Sensors powered by <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor" target="_blank" style="color:var(--accent-primary);">LibreHardwareMonitor</a></p>
+      <p>v1.0.1 &middot; Built with <a href="https://ui.byjtt.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary);">ByJT UI</a></p>
+      <p style="margin-top:0.35rem;">Sensors powered by <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary);">LibreHardwareMonitor</a></p>
       <p style="margin-top:0.35rem;">
-        <a href="https://github.com/jordan-thirkle/wattwise" target="_blank" style="color:var(--text-tertiary);font-size:0.7rem;">GitHub</a>
+        <a href="https://github.com/jordan-thirkle/wattwise" target="_blank" rel="noopener noreferrer" style="color:var(--text-tertiary);font-size:0.7rem;">GitHub</a>
         &middot;
-        <a href="https://byjtt.com/projects" target="_blank" style="color:var(--text-tertiary);font-size:0.7rem;">byjtt.com</a>
+        <a href="https://byjtt.com/projects" target="_blank" rel="noopener noreferrer" style="color:var(--text-tertiary);font-size:0.7rem;">byjtt.com</a>
       </p>
     </div>
   </div>
@@ -96,13 +96,26 @@ import Layout from '../layouts/Layout.astro';
   }
 
   document.getElementById('save-btn')!.addEventListener('click', async () => {
+    const rate = parseFloat((document.getElementById('rate') as HTMLInputElement).value);
+    const standing = parseFloat((document.getElementById('standing') as HTMLInputElement).value);
+    const baseWatts = parseInt((document.getElementById('baseWatts') as HTMLInputElement).value);
+    const retention = parseInt((document.getElementById('retention') as HTMLInputElement).value);
+
+    if (isNaN(rate) || rate <= 0 || isNaN(standing) || standing < 0 || isNaN(baseWatts) || baseWatts < 0 || isNaN(retention) || retention < 1) {
+      const status = document.getElementById('save-status')!;
+      status.textContent = 'Please enter valid positive numbers';
+      status.style.color = 'var(--error)';
+      status.style.display = 'block';
+      return;
+    }
+
     const settings = {
-      ratePencePerKwh: parseFloat((document.getElementById('rate') as HTMLInputElement).value),
-      standingChargePencePerDay: parseFloat((document.getElementById('standing') as HTMLInputElement).value),
+      ratePencePerKwh: rate,
+      standingChargePencePerDay: standing,
       currency: (document.getElementById('currency') as HTMLSelectElement).value,
-      baseSystemWatts: parseInt((document.getElementById('baseWatts') as HTMLInputElement).value),
+      baseSystemWatts: baseWatts,
       updateIntervalMs: 1000,
-      dataRetentionDays: parseInt((document.getElementById('retention') as HTMLInputElement).value),
+      dataRetentionDays: retention,
     };
     try {
       await updateSettings(settings);

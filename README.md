@@ -7,8 +7,6 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2-blue)](https://tauri.app)
 [![.NET](https://img.shields.io/badge/.NET-8-purple)](https://dotnet.microsoft.com)
 
-![WattWise Dashboard](docs/screenshot.png)
-
 ## Features
 
 ### Free Forever

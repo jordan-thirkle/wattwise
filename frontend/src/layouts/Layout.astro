@@ -15,9 +15,12 @@ const path = Astro.url.pathname;
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem;">
-        <span style="font-size:1.2rem;">⚡</span>
-        <span style="font-weight:600;font-size:0.95rem;">WattWise</span>
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.5rem;">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgb(99,102,241),rgb(79,70,229));display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:white;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0;">W</div>
+        <div>
+          <span style="font-weight:600;font-size:0.95rem;display:block;">WattWise</span>
+          <span style="font-size:0.55rem;color:var(--text-quaternary);text-transform:uppercase;letter-spacing:0.06em;">by <a href="https://byjtt.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary);text-decoration:none;">ByJTT</a></span>
+        </div>
       </div>
 
       <nav style="display:flex;flex-direction:column;gap:0.25rem;flex:1;">
